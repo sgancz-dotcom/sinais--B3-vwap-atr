@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Sinais B3 – VWAP/ATR (PWA)</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Sinais B3">
+  <link rel="apple-touch-icon" href="image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><rect width='100%' height='100%' fill='%230b1522'/><text x='50%' y='55%' text-anchor='middle' font-family='Arial' font-size='96' fill='%23ffffff'>B3</text></svg>">
+
+  <style>
+    :root { --bg:#0b1522; --card:#101b2a; --muted:#6b7a90; --text:#e8eef6; --accent:#3fb984; --warn:#f59e0b; --err:#ef4444; }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+    header{position:sticky;top:0;background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,.0));backdrop-filter:saturate(180%) blur(8px);padding:16px 16px 8px;border-bottom:1px solid rgba(255,255,255,.06);z-index:10}
+    .wrap{max-width:980px;margin:0 auto;padding:12px}
+    h1{font-size:20px;margin:0 0 6px;letter-spacing:.3px}
+    .sub{color:var(--muted);font-size:12px}
+    .grid{display:grid;gap:12px;grid-template-columns:1fr}
+    @media(min-width:820px){ .grid{grid-template-columns:320px 1fr} }
+    .card{background:var(--card);border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:12px;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+    label{display:block;font-size:12px;color:var(--muted);margin:8px 0 6px}
+    input,select,button,textarea{width:100%;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:#0e1a29;color:var(--text);font-size:14px}
+    input:focus,button:focus{outline:2px solid rgba(63,185,132,.5);outline-offset:2px}
+    button{cursor:pointer}
+    .btn{background:var(--accent);border:none;color:#031511;font-weight:600}
+    .btn.secondary{background:#142234;color:var(--text);border:1px solid rgba(255,255,255,.12)}
+    .row{display:flex;gap:8px}
+    .row > *{flex:1}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px;border-bottom:1px dashed rgba(255,255,255,.08);font-size:13px}
+    th{font-weight:600;text-align:left;color:#cfe6da}
+    tr:hover td{background:rgba(255,255,255,.02)}
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-weight:700;font-size:12px}
+    .BUY{background:rgba(63,185,132,.15);color:#7cf1bb;border:1px solid rgba(63,185,132,.35)}
+    .SELL{background:rgba(239,68,68,.12);color:#ff9da4;border:1px solid rgba(239,68,68,.35)}
+    .muted{color:var(--muted)}
+    footer{padding:20px 12px 32px;color:var(--muted);text-align:center}
+    .badge{background:#142234;border:1px solid rgba(255,255,255,.12);padding:4px 8px;border-radius:10px}
+    .hint{font-size:12px;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Sinais B3 – VWAP/ATR</h1>
+      <div class="sub">PWA leve para iPhone • Delay típico de dados grátis ~15 min • Ideal para Swing Trade</div>
+    </div>
+  </header>
+
+  <main class="wrap grid">
+    <section class="card" id="config">
+      <h2 style="margin:6px 0 8px;font-size:16px">Configurações</h2>
+      <label for="tickers">Tickers (separe por vírgula)</label>
+      <input id="tickers" placeholder="PETR4, VALE3, ITUB4" />
+
+      <div class="row">
+        <div>
+          <label for="atr">ATR período</label>
+          <input id="atr" type="number" min="5" max="50" />
+        </div>
+        <div>
+          <label for="vwap">VWAP janela</label>
+          <input id="vwap" type="number" min="10" max="60" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="volmult">Volume x MA20 (mín.)</label>
+          <input id="volmult" type="number" step="0.1" />
+        </div>
+        <div>
+          <label for="rr">R:R alvo</label>
+          <input id="rr" type="number" step="0.1" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="capital">Capital total (R$)</label>
+          <input id="capital" type="number" step="100" />
+        </div>
+        <div>
+          <label for="risk">Risco por trade</label>
+          <input id="risk" type="number" step="0.001" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="save">Salvar</button>
+        <button class="btn secondary" id="refresh">Atualizar agora</button>
+        <button class="btn secondary" id="export">Exportar CSV</button>
+      </div>
+      <div class="hint" style="margin-top:8px">
+        Última atualização: <span id="lastUpdate">–</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 style="margin:6px 0 8px;font-size:16px">Sinais</h2>
+      <div id="status" class="muted" style="margin-bottom:8px"></div>
+      <div style="overflow:auto">
+        <table id="table">
+          <thead>
+            <tr>
+              <th>Ticker</th><th>Fech.</th><th>VWAP</th><th>ATR</th><th>Vol</th><th>MA20</th><th>Sinal</th><th>Entrada</th><th>Stop</th><th>Alvo</th><th>Tamanho</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span class="badge">Dados: brapi.dev (grátis; pode ter atraso)</span>
+  </footer>
+
+<script>
+const $ = sel => document.querySelector(sel);
+const fmt = n => (n==null||isNaN(n)? "" : Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}));
+const fmtInt = n => (n==null||isNaN(n)?"": Number(n).toLocaleString('pt-BR'));
+
+const defaults = { tickers:"PETR4, VALE3, ITUB4", atr:14, vwap:20, volmult:1.2, rr:2.0, capital:100000, risk:0.015 };
+
+function loadCfg(){ const raw = localStorage.getItem('cfg'); return raw ? JSON.parse(raw) : {...defaults}; }
+function saveCfg(cfg){ localStorage.setItem('cfg', JSON.stringify(cfg)); }
+function applyCfgToUI(cfg){ $('#tickers').value=cfg.tickers; $('#atr').value=cfg.atr; $('#vwap').value=cfg.vwap; $('#volmult').value=cfg.volmult; $('#rr').value=cfg.rr; $('#capital').value=cfg.capital; $('#risk').value=cfg.risk; }
+
+function uiToCfg(){
+  const cfg = {
+    tickers: $('#tickers').value || defaults.tickers,
+    atr: Number($('#atr').value || defaults.atr),
+    vwap: Number($('#vwap').value || defaults.vwap),
+    volmult: Number($('#volmult').value || defaults.volmult),
+    rr: Number($('#rr').value || defaults.rr),
+    capital: Number($('#capital').value || defaults.capital),
+    risk: Number($('#risk').value || defaults.risk),
+  };
+  if (cfg.atr<5||cfg.atr>50) cfg.atr=defaults.atr;
+  if (cfg.vwap<10||cfg.vwap>60) cfg.vwap=defaults.vwap;
+  if (cfg.volmult<=0) cfg.volmult=defaults.volmult;
+  if (cfg.rr<=0) cfg.rr=defaults.rr;
+  if (cfg.capital<=0) cfg.capital=defaults.capital;
+  if (cfg.risk<=0 || cfg.risk>=1) cfg.risk=defaults.risk;
+  return cfg;
+}
+
+// --- Funções otimizadas ---
+function sma(arr, win){
+  const out=new Array(arr.length).fill(NaN); let sum=0;
+  for(let i=0;i<arr.length;i++){ sum+=arr[i]; if(i>=win) sum-=arr[i-win]; if(i>=win-1) out[i]=sum/win; }
+  return out;
+}
+function vwapRolling(close, volume, win){
+  const out=new Array(close.length).fill(NaN); let pvSum=0, vSum=0;
+  for(let i=0;i<close.length;i++){
+    pvSum+=close[i]*volume[i]; vSum+=volume[i];
+    if(i>=win){ pvSum-=close[i-win]*volume[i-win]; vSum-=volume[i-win]; }
+    if(i>=win-1) out[i]=vSum?pvSum/vSum:NaN;
+  }
+  return out;
+}
+function atr14(H,L,C,period){
+  const TR=[]; for(let i=0;i<C.length;i++){ const hl=(H[i]-L[i]); const hc=i===0?0:Math.abs(H[i]-C[i-1]); const lc=i===0?0:Math.abs(L[i]-C[i-1]); TR.push(Math.max(hl,hc,lc)); }
+  const out=new Array(TR.length).fill(NaN); let sum=0;
+  for(let i=0;i<TR.length;i++){ sum+=TR[i]; if(i>=period) sum-=TR[i-period]; if(i>=period-1) out[i]=sum/period; }
+  return out;
+}
+function positionSize(capital, riskPerTrade, entry, stop){
+  const risk = Math.abs(entry-stop);
+  if(!isFinite(risk) || risk<=0) return 0;
+  return Math.max(0, Math.floor((capital*riskPerTrade)/risk));
+}
+async function fetchDaily(ticker){
+  const url=`https://brapi.dev/api/quote/${encodeURIComponent(ticker)}?range=180d&interval=1d&fundamental=false`;
+  const r=await fetch(url,{cache:'no-store'}); if(!r.ok) throw new Error(`${ticker}: erro ${r.status}`);
+  const j=await r.json(); const res=(j.results||[])[0]||{}; const hist=res.historicalDataPrice||[]; if(!hist.length) throw new Error(`${ticker}: sem dados`);
+  return hist.map(x=>({date:new Date((x.date||0)*1000), open:+x.open, high:+x.high, low:+x.low, close:+x.close, volume:+x.volume})).sort((a,b)=>a.date-b.date);
+}
+function computeAll(rows,cfg){
+  const O=rows.map(r=>r.open),H=rows.map(r=>r.high),L=rows.map(r=>r.low),C=rows.map(r=>r.close),V=rows.map(r=>r.volume);
+  const ATR=atr14(H,L,C,cfg.atr), VolMA20=sma(V,20), VWAP=vwapRolling(C,V,cfg.vwap);
+  const out=rows.map((r,i)=>({...r, ATR:ATR[i], VolMA20:VolMA20[i], VWAP:VWAP[i]}));
+  if(out.length<2) return {out,signal:null};
+  const row=out[out.length-1], strongBody=Math.abs(row.close-row.open) >= 0.6*(row.high-row.low+1e-9), volOK=row.volume>(cfg.volmult*(row.VolMA20||Infinity));
+  let signal=null;
+  if(isFinite(row.ATR)&&row.ATR>0&&volOK&&strongBody&&isFinite(row.VWAP)){
+    if(row.close>row.VWAP){ signal={side:'BUY', entry:row.close, stop:row.close-row.ATR, target:row.close+cfg.rr*row.ATR}; }
+    else if(row.close<row.VWAP){ signal={side:'SELL', entry:row.close, stop:row.close+row.ATR, target:row.close-cfg.rr*row.ATR}; }
+  }
+  return {out,signal};
+}
+function render(rows){
+  const tb=$('#table tbody'); tb.innerHTML='';
+  for(const r of rows){
+    const err=r.error?'style="color:#f88;font-style:italic"':'';
+    tb.insertAdjacentHTML('beforeend',`
+      <tr>
+        <td ${err}>${r.ticker}</td>
+        <td>${fmt(r.close)}</td>
+        <td>${fmt(r.VWAP)}</td>
+        <td>${fmt(r.ATR)}</td>
+        <td>${fmtInt(r.volume)}</td>
+        <td>${fmtInt(r.VolMA20)}</td>
+        <td>${r.signal?`<span class="pill ${r.signal.side}">${r.signal.side}</span>`:'<span class="muted">—</span>'}</td>
+        <td>${r.signal?fmt(r.signal.entry):''}</td>
+        <td>${r.signal?fmt(r.signal.stop):''}</td>
+        <td>${r.signal?fmt(r.signal.target):''}</td>
+        <td>${r.signal?fmtInt(r.size):''}</td>
+      </tr>`);
+  }
+}
+function toCSV(rows){
+  const header=['when','ticker','action','entry','stop','target','atr','close','vwap','volume','volma20','size'];
+  const now=new Date().toISOString(); const lines=[header.join(',')];
+  for(const r of rows){ const s=r.signal || {side:'',entry:'',stop:'',target:''}; lines.push([now,r.ticker,s.side,s.entry,s.stop,s.target,r.ATR,r.close,r.VWAP,r.volume,r.VolMA20,r.size].join(',')); }
+  return lines.join('\n');
+}
+async function runOnce(){
+  const cfg=uiToCfg(); saveCfg(cfg); $('#status').textContent='Buscando dados...';
+  const tickers=cfg.tickers.split(',').map(s=>s.trim()).filter(Boolean);
+  const outRows=await Promise.all(tickers.map(async t=>{
+    try{ const rows=await fetchDaily(t); const {out,signal}=computeAll(rows,cfg); const last=out[out.length-1]; const size=signal?positionSize(cfg.capital,cfg.risk,signal.entry,signal.stop):0; return {...last,ticker:t,signal,size}; }
+    catch(e){ console.error(e); return {ticker:t, close:null, VWAP:null, ATR:null, volume:null, VolMA20:null, signal:null, size:0, error:true}; }
+  }));
+  render(outRows); $('#status').textContent='Pronto.';
+  $('#lastUpdate').textContent=new Date().toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}); window.__lastRows=outRows;
+}
+
+// Eventos UI
+window.addEventListener('load',()=>{
+  applyCfgToUI(loadCfg());
+  $('#save').addEventListener('click',()=>{ saveCfg(uiToCfg()); alert('Configurações salvas.'); });
+  $('#refresh').addEventListener('click',()=>runOnce());
+  $('#export').addEventListener('click',()=>{
+    const csv=toCSV(window.__lastRows||[]);
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='signals.csv'; a.click(); URL.revokeObjectURL(a.href);
+  });
+  runOnce();
+});
+// Auto-refresh
+setInterval(()=>{
+  const now=new Date(), dow=now.getDay(); if(dow===0||dow===6) return;
+  const brtNow=new Date(now.toLocaleString('en-US',{timeZone:'America/Sao_Paulo'})), h=brtNow.getHours()+brtNow.getMinutes()/60;
+  if(h>=9.75 && h<=18.2) runOnce();
+},15*60*1000);
+// PWA SW inline
+if('serviceWorker' in navigator){
+  const swCode=`self.addEventListener('install',e=>{e.waitUntil(caches.open('b3-pwa-v1').then(c=>c.addAll(['./'])))});self.addEventListener('fetch',e=>{e.respondWith(fetch(e.request).catch(()=>caches.match(e.request)))})`;
+  navigator.serviceWorker.register(URL.createObjectURL(new Blob([swCode],{type:'text/javascript'}))).catch(console.warn);
+}
+</script>
+</body>
+</html>
